@@ -1,0 +1,84 @@
+# entrada.txt - casos de teste
+
+# Comandos: 
+#   1 adjacencia
+#   2 incidencia nao dirigida 
+#   3 incidencia dirigida
+#   4 lista de adjacencia
+#   5 mostrar
+#   6 classificar
+#   0 sair  
+
+# ---- matriz de incidencia dirigida ----
+3
+6 11
+1 1 -1  0  0  0  0  0  0  0  0
+-1  0  0  0 1  0 1 -1  0  0  0
+ 0  0  0 -1  0  0 -1  0  0 1 -1
+ 0  0  0  0  0  0  0  0 -1 -1 1
+ 0  0  0  0  0 -1  0 1 1  0  0
+ 0 -1 1 1 -1 1  0  0  0  0  0
+6
+
+# ---- matriz de incidencia nao dirigida ----
+2
+4 4
+1 0 0 1
+1 1 0 0
+0 1 1 0
+0 0 1 1
+6
+
+# ----  lista de adjacencia (cada linha termina em 0) ----
+4
+5
+2 5 0
+1 5 3 4 0
+2 4 0
+5 2 3 0
+4 1 2 0
+6
+
+# ---- clique ----
+1
+6
+0 1 0 0 1 0
+1 0 1 1 1 1
+0 1 0 0 1 1
+0 1 0 0 0 1
+1 1 1 0 0 1
+0 1 1 1 1 0
+6
+
+# ---- pentagono ----
+1
+5
+0 1 1 1 1
+1 0 1 1 1
+1 1 0 1 1
+1 1 1 0 1
+1 1 1 1 0
+6
+
+# ---- Roda  ----
+1
+5
+0 1 1 1 1
+1 0 1 0 1
+1 1 0 1 0
+1 0 1 0 1
+1 1 0 1 0
+6
+
+# ---- Bipartido  ----
+1
+6
+0 0 0 1 1 1
+0 0 0 1 1 1
+0 0 0 1 1 1
+1 1 1 0 0 0
+1 1 1 0 0 0
+1 1 1 0 0 0
+6
+
+0
