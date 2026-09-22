@@ -9,7 +9,7 @@
 #   6 classificar
 #   0 sair  
 
-# ---- matriz de incidencia dirigida ----
+# ---- Grafos_03: matriz de incidencia dirigida, 6 vertices, 11 arestas ----
 3
 6 11
 1 1 -1  0  0  0  0  0  0  0  0
@@ -20,7 +20,7 @@
  0 -1 1 1 -1 1  0  0  0  0  0
 6
 
-# ---- matriz de incidencia nao dirigida ----
+# ---- Grafos_03: matriz de incidencia nao dirigida, ciclo C4 ----
 2
 4 4
 1 0 0 1
@@ -29,7 +29,7 @@
 0 0 1 1
 6
 
-# ----  lista de adjacencia (cada linha termina em 0) ----
+# ---- Grafos_04: lista de adjacencia (cada linha termina em 0) ----
 4
 5
 2 5 0
@@ -39,7 +39,7 @@
 4 1 2 0
 6
 
-# ---- clique ----
+# ---- Quadro: grafo G da foto, 6 vertices ----
 1
 6
 0 1 0 0 1 0
@@ -50,7 +50,7 @@
 0 1 1 1 1 0
 6
 
-# ---- pentagono ----
+# ---- Quadro: K5 (tem clique) ----
 1
 5
 0 1 1 1 1
@@ -60,7 +60,7 @@
 1 1 1 1 0
 6
 
-# ---- Roda  ----
+# ---- Roda W4 (centro = vertice 1) ----
 1
 5
 0 1 1 1 1
@@ -70,7 +70,7 @@
 1 1 0 1 0
 6
 
-# ---- Bipartido  ----
+# ---- Bipartido K3,3 ----
 1
 6
 0 0 0 1 1 1
@@ -80,5 +80,24 @@
 1 1 1 0 0 0
 1 1 1 0 0 0
 6
+
+# ---- Grafos_11: desconexo, graus {2,2,2,2,2,2} = dois triangulos ----
+1
+6
+0 1 1 0 0 0
+1 0 1 0 0 0
+1 1 0 0 0 0
+0 0 0 0 1 1
+0 0 0 1 0 1
+0 0 0 1 1 0
+6
+
+# ---- Desafio: grafo euleriano com 5 vertices e 7 arestas ----
+7
+5 7
+
+# ---- Desafio: grafo euleriano com 6 vertices e 10 arestas ----
+7
+6 10
 
 0
