@@ -1,88 +1,81 @@
 /* grafos.c - CMP2119 Algoritmos em Grafos
  *
- * Compilar: gcc -O2 -o grafos grafos.c && ./grafos 
+ * Compilar e rodar:  gcc -O2 -o grafos grafos.c && ./grafos
  *
- * Formato de entrada.txt: sequencia de comandos, cada um seguido dos seus dados.
+ * O programa le comandos do arquivo entrada.txt (ou do teclado, se o arquivo
+ * nao existir). Linhas que comecam com '#' sao comentarios.
  *
- *   1 n <matriz n x n>                                 matriz de adjacencia, nao dirigido
- *   2 n m <matriz n x m>                               matriz de incidencia, nao dirigido (1 = incide)
- *   3 n m <matriz n x m>                               matriz de incidencia, dirigido (+1 origem, -1 destino)
- *   4 n <vizinhos de v1> 0 ... <vizinhos de vn> 0      lista de adjacencia
- *   5                                                  mostra lista, matriz e graus
- *   6                                                  classifica: ciclo, completo, roda, euleriano, bipartido, conexo, cliques
- *   7 n m                                              constroi um grafo euleriano com n vertices e m arestas
- *   0                                                  encerra
+ *   Comando  Dados                                  O que faz
+ *   -------  -------------------------------------  ----------------------------------------------
+ *   1        n, matriz n x n                        le matriz de adjacencia (nao dirigido)
+ *   2        n m, matriz n x m                      le matriz de incidencia (nao dirigido, 1 = incide)
+ *   3        n m, matriz n x m                      le matriz de incidencia (dirigido: +1 origem, -1 destino)
+ *   4        n, vizinhos de cada vertice + 0        le lista de adjacencia (cada lista termina em 0)
+ *   5        -                                      mostra o grafo atual
+ *   6        -                                      classifica o grafo atual
+ *   7        n m                                    constroi um grafo euleriano com n vertices e m arestas
+ *   0        -                                      encerra
  *
+ * Como o grafo e guardado:
+ *   adj[i][j] = quantidade de arestas que saem do vertice i e chegam no vertice j.
+ *   Em grafo nao dirigido, cada aresta i-j aumenta adj[i][j] E adj[j][i].
+ *   Internamente os vertices vao de 0 a n-1; na tela aparecem de 1 a n.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 #include <stdbool.h>
 
-#define MAXN 1000
-#define MAXM 1000
+#define MAXN 1000   // maximo de vertices
+#define MAXM 1000   // maximo de arestas (matriz de incidencia)
 
-static FILE *entrada;
+#define NENHUM -1   // usado quando nenhum vertice deve ser ignorado
 
-static int n;                       
-static int dirigido;                
-static int adj[MAXN][MAXN];         
-static int linha = 1;                
+FILE *entrada;
 
-static void pularComentarios() {
-    int c;
- 
-    while ((c = fgetc(entrada)) != EOF) {
-        if (c == '#') {
-            while ((c = fgetc(entrada)) != EOF && c != '\n') {
-            }
-        }
- 
-        if (c == '\n') {
-            linha++;
-        } else if (!isspace(c) && c != 0xEF && c != 0xBB && c != 0xBF) {
-            ungetc(c, entrada);
-            return;
-        }
+int n;                  // numero de vertices
+bool dirigido;          // true se o grafo for dirigido
+int adj[MAXN][MAXN];    // matriz de adjacencia
+
+
+/* ========================================================================
+ *  LEITURA DA ENTRADA
+ * ======================================================================== */
+
+// Pula tudo ate o fim da linha atual (usado para ignorar comentarios).
+void pularLinha() {
+    int c = fgetc(entrada);
+
+    while (c != '\n' && c != EOF) {
+        c = fgetc(entrada);
     }
 }
 
+// Le o proximo numero da entrada, ignorando comentarios.
+// Se o arquivo acabar, encerra o programa.
+int lerInteiro() {
+    char palavra[64];
 
-static int lerInteiro(int minimo, int maximo) {
-    int valor;
- 
-    pularComentarios();             
- 
-    if (fscanf(entrada, "%d", &valor) != 1) {
-        if (feof(entrada)) {
-            exit(0);                
+    while (fscanf(entrada, "%63s", palavra) == 1) {
+        if (palavra[0] == '#') {
+            pularLinha();
+        } else {
+            return atoi(palavra);
         }
- 
-        printf("Erro na linha %d: esperado um numero, encontrado o caractere %d\n", linha, fgetc(entrada));
-        exit(1);
     }
- 
-    if (valor < minimo || valor > maximo) {
-        printf("Entrada invalida: %d (esperado entre %d e %d)\n", valor, minimo, maximo);
-        exit(1);
-    }
- 
-    return valor;
+
+    exit(0);
 }
 
-
-
-static void limparGrafo(int vertices, int ehDirigido) {
+// Comeca um grafo novo, sem nenhuma aresta.
+void novoGrafo(int vertices, bool ehDirigido) {
     n = vertices;
     dirigido = ehDirigido;
-
     memset(adj, 0, sizeof adj);
 }
 
-
-static void adicionarAresta(int a, int b) {
+void adicionarAresta(int a, int b) {
     adj[a][b]++;
 
     if (!dirigido) {
@@ -90,91 +83,85 @@ static void adicionarAresta(int a, int b) {
     }
 }
 
-
-static void lerMatrizAdjacencia() {
-    limparGrafo(lerInteiro(1, MAXN), 0);
-
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            adj[i][j] = lerInteiro(0, 1000);
-        }
-    }
+// Comando 1: a matriz lida ja e a propria matriz de adjacencia.
+void lerMatrizAdjacencia() {
+    novoGrafo(lerInteiro(), false);
 
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-            if (adj[i][j] != adj[j][i]) {
-                printf("Matriz nao simetrica em (%d,%d)\n", i + 1, j + 1);
-                exit(1);
-            }
+            adj[i][j] = lerInteiro();
         }
     }
 }
 
-static void lerMatrizIncidencia(int ehDirigido) {
-    static int inc[MAXN][MAXM];
+// Comandos 2 e 3: cada coluna da matriz de incidencia e uma aresta.
+// Em cada coluna procuramos os dois vertices que a aresta liga.
+void lerMatrizIncidencia(bool ehDirigido) {
+    static int incidencia[MAXN][MAXM];
 
-    int vertices = lerInteiro(1, MAXN);
-    int m = lerInteiro(0, MAXM);
+    int vertices = lerInteiro();
+    int arestas = lerInteiro();
 
-    limparGrafo(vertices, ehDirigido);
+    novoGrafo(vertices, ehDirigido);
 
     for (int i = 0; i < n; i++) {
-        for (int e = 0; e < m; e++) {
-            inc[i][e] = lerInteiro(-ehDirigido, 1);
+        for (int e = 0; e < arestas; e++) {
+            incidencia[i][e] = lerInteiro();
         }
     }
 
-    for (int e = 0; e < m; e++) {
-        int origem = -1;
-        int destino = -1;
+    for (int e = 0; e < arestas; e++) {
+        int origem = NENHUM;
+        int destino = NENHUM;
 
         for (int i = 0; i < n; i++) {
-            if (inc[i][e] == 0) {
-                continue;
+            if (incidencia[i][e] == 0) {
+                continue;               // vertice i nao toca a aresta e
             }
 
-            int ehOrigem = dirigido ? inc[i][e] == 1 : origem < 0;
-            int *extremo = ehOrigem ? &origem : &destino;
-
-            if (*extremo >= 0) {
-                printf("Aresta %d tem mais de dois extremos\n", e + 1);
-                exit(1);
+            // Dirigido: +1 e a origem, -1 e o destino.
+            // Nao dirigido: o primeiro 1 vira "origem" e o segundo vira "destino".
+            if (incidencia[i][e] == 1 && origem == NENHUM) {
+                origem = i;
+            } else {
+                destino = i;
             }
-
-            *extremo = i;
-        }
-
-        if (origem < 0 || destino < 0) {
-            printf("Aresta %d nao tem dois extremos\n", e + 1);
-            exit(1);
         }
 
         adicionarAresta(origem, destino);
     }
 }
 
-
-static void lerListaAdjacencia() {
-    limparGrafo(lerInteiro(1, MAXN), 0);
+// Comando 4: para cada vertice, le os vizinhos ate encontrar 0.
+// Se alguma ligacao aparecer em um so sentido, o grafo e considerado dirigido.
+void lerListaAdjacencia() {
+    novoGrafo(lerInteiro(), false);
 
     for (int i = 0; i < n; i++) {
-        int vizinho;
+        int vizinho = lerInteiro();
 
-        while ((vizinho = lerInteiro(0, n)) != 0) {
+        while (vizinho != 0) {
             adj[i][vizinho - 1] = 1;
+            vizinho = lerInteiro();
         }
     }
 
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
             if (adj[i][j] != adj[j][i]) {
-                dirigido = 1;
+                dirigido = true;
             }
         }
     }
 }
 
-static int grau(int i) {
+
+/* ========================================================================
+ *  FUNCOES AUXILIARES
+ * ======================================================================== */
+
+// Grau de saida (em grafo nao dirigido e o grau normal): soma da linha i.
+int grau(int i) {
     int soma = 0;
 
     for (int j = 0; j < n; j++) {
@@ -184,8 +171,8 @@ static int grau(int i) {
     return soma;
 }
 
-
-static int grauEntrada(int i) {
+// Grau de entrada: soma da coluna i.
+int grauEntrada(int i) {
     int soma = 0;
 
     for (int j = 0; j < n; j++) {
@@ -195,267 +182,334 @@ static int grauEntrada(int i) {
     return soma;
 }
 
-
-static bool ehSimples() {
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            if (adj[i][j] > (i != j)) {
-                return 0;
-            }
-        }
-    }
-
-    return 1;
+// Existe alguma aresta entre a e b, em qualquer sentido?
+bool ligados(int a, int b) {
+    return adj[a][b] > 0 || adj[b][a] > 0;
 }
 
-static int todosComGrau(int g, int ignorado) {
+// Todos os vertices (menos o "ignorado") tem grau g?
+bool todosComGrau(int g, int ignorado) {
     for (int i = 0; i < n; i++) {
         if (i != ignorado && grau(i) != g) {
-            return 0;
+            return false;
         }
     }
 
-    return 1;
+    return true;
 }
 
+// Busca em profundidade: marca todos os vertices alcancaveis a partir de v.
+// A direcao das arestas e ignorada e o vertice "ignorado" nunca e visitado.
+void visitar(int v, bool visitado[], int ignorado) {
+    visitado[v] = true;
 
-
-typedef int Matriz[MAXN][MAXN];
-
-static void montarSubjacente(Matriz A, int ignorado) {
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            A[i][j] = i != ignorado && j != ignorado && (adj[i][j] || adj[j][i]);
-        }
-    }
-}
-
-
-static void multiplicar(Matriz A, Matriz B, Matriz C) {
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            C[i][j] = 0;
-
-            for (int k = 0; k < n && !C[i][j]; k++) {
-                C[i][j] = A[i][k] && B[k][j];
-            }
+    for (int u = 0; u < n; u++) {
+        if (u != ignorado && !visitado[u] && ligados(v, u)) {
+            visitar(u, visitado, ignorado);
         }
     }
 }
 
 
-static void acumular(Matriz S, Matriz B) {
-    static Matriz T;
+/* ========================================================================
+ *  CLASSIFICACAO DO GRAFO
+ * ======================================================================== */
 
-    multiplicar(S, B, T);
-
+// Simples: sem lacos (aresta de um vertice para ele mesmo) e sem arestas repetidas.
+bool ehSimples() {
     for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            S[i][j] = S[i][j] || T[i][j];
+        if (adj[i][i] != 0) {
+            return false;
         }
-    }
-}
 
-
-static bool ehConexo(int ignorado) {
-    static Matriz A;
-    static Matriz S;
-
-    montarSubjacente(A, ignorado);
-    montarSubjacente(S, ignorado);
-
-    for (int r = 2; r < n; r++) {
-        acumular(S, A);
-    }
-
-    for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-            if (i != j && i != ignorado && j != ignorado && !S[i][j]) {
-                return 0;
+            if (adj[i][j] > 1) {
+                return false;
             }
         }
     }
 
-    return 1;
+    return true;
 }
 
+// Conexo: a partir de um vertice qualquer, a busca alcanca todos os outros.
+// Se "ignorado" for um vertice, testa o grafo como se ele tivesse sido removido
+// (isso e usado na verificacao de roda).
+bool ehConexo(int ignorado) {
+    bool visitado[MAXN] = {false};
 
-static bool ehCiclo() {
-    return n >= 3 && ehSimples() && todosComGrau(2, -1) && ehConexo(-1);
+    int inicio = 0;
+    if (ignorado == 0) {
+        inicio = 1;
+    }
+
+    visitar(inicio, visitado, ignorado);
+
+    for (int i = 0; i < n; i++) {
+        if (i != ignorado && !visitado[i]) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
-static bool ehCompleto() {
-    return ehSimples() && todosComGrau(n - 1, -1);
+// Ciclo: simples, conexo, pelo menos 3 vertices e todos com grau 2.
+bool ehCiclo() {
+    return n >= 3 && ehSimples() && todosComGrau(2, NENHUM) && ehConexo(NENHUM);
 }
 
-static bool ehRoda() {
+// Completo: simples e cada vertice ligado a todos os outros (grau n-1).
+bool ehCompleto() {
+    return ehSimples() && todosComGrau(n - 1, NENHUM);
+}
+
+// Roda: um vertice central ligado a todos, e os demais formam um ciclo.
+// Ou seja: o centro tem grau n-1, os outros tem grau 3 (2 do ciclo + 1 do centro)
+// e, tirando o centro, o que sobra continua conexo.
+bool ehRoda() {
     if (n < 4 || !ehSimples()) {
-        return 0;
+        return false;
     }
 
     for (int centro = 0; centro < n; centro++) {
         if (grau(centro) == n - 1 && todosComGrau(3, centro) && ehConexo(centro)) {
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
-static const char *verificarEuleriano() {
-    if (!ehConexo(-1)) {
+// Nao dirigido:
+//   todos os graus pares         -> ciclo euleriano
+//   exatamente 2 graus impares   -> so caminho euleriano
+// Dirigido (diferenca = saida - entrada):
+//   todas as diferencas 0                        -> ciclo euleriano
+//   um vertice com +1, um com -1, resto com 0    -> so caminho euleriano
+const char *verificarEuleriano() {
+    if (!ehConexo(NENHUM)) {
         return "nao (desconexo)";
     }
 
-    int excessoSaida = 0;
-    int excessoEntrada = 0;
+    if (!dirigido) {
+        int impares = 0;
+
+        for (int i = 0; i < n; i++) {
+            if (grau(i) % 2 == 1) {
+                impares++;
+            }
+        }
+
+        if (impares == 0) {
+            return "sim (ciclo euleriano)";
+        }
+        if (impares == 2) {
+            return "apenas caminho euleriano";
+        }
+        return "nao";
+    }
+
+    int sobraSaida = 0;     // vertices com saida = entrada + 1
+    int sobraEntrada = 0;   // vertices com entrada = saida + 1
 
     for (int i = 0; i < n; i++) {
-        int diferenca = dirigido ? grau(i) - grauEntrada(i) : grau(i) % 2;
+        int diferenca = grau(i) - grauEntrada(i);
 
         if (diferenca == 1) {
-            excessoSaida++;
+            sobraSaida++;
         } else if (diferenca == -1) {
-            excessoEntrada++;
+            sobraEntrada++;
         } else if (diferenca != 0) {
             return "nao";
         }
     }
 
-    if (excessoSaida == 0 && excessoEntrada == 0) {
+    if (sobraSaida == 0 && sobraEntrada == 0) {
         return "sim (ciclo euleriano)";
     }
-
-    if (dirigido ? excessoSaida == 1 && excessoEntrada == 1 : excessoSaida == 2) {
+    if (sobraSaida == 1 && sobraEntrada == 1) {
         return "apenas caminho euleriano";
     }
-
     return "nao";
 }
 
-static bool ehBipartido() {
-    static Matriz A;
-    static Matriz A2;
-    static Matriz S;
+#define SEM_COR 0
+#define AZUL    1
+#define VERMELHO 2
 
-    montarSubjacente(A, -1);
-    montarSubjacente(S, -1);
-    multiplicar(A, A, A2);
+// Pinta v com a cor dada e tenta pintar os vizinhos com a cor oposta.
+// Retorna false se dois vizinhos acabarem com a mesma cor.
+bool pintar(int v, int cor[], int corDeV) {
+    int corOposta = (corDeV == AZUL) ? VERMELHO : AZUL;
 
-    for (int r = 3; r <= n; r += 2) {
-        acumular(S, A2);
-    }
+    cor[v] = corDeV;
 
-    for (int i = 0; i < n; i++) {
-        if (S[i][i]) {
-            return 0;
+    for (int u = 0; u < n; u++) {
+        if (!ligados(v, u)) {
+            continue;
+        }
+
+        if (cor[u] == corDeV) {
+            return false;               // vizinho com a mesma cor: nao e bipartido
+        }
+
+        if (cor[u] == SEM_COR && !pintar(u, cor, corOposta)) {
+            return false;
         }
     }
 
-    return 1;
+    return true;
 }
 
+// Bipartido: da para pintar os vertices com 2 cores sem que vizinhos tenham a mesma cor.
+bool ehBipartido() {
+    int cor[MAXN] = {SEM_COR};
 
-static bool completarClique(int k, int inicio, int escolhidos[], int qtd) {
+    for (int v = 0; v < n; v++) {
+        if (cor[v] == SEM_COR && !pintar(v, cor, AZUL)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// Tenta montar um clique de k vertices (todos ligados entre si), escolhendo
+// um vertice por vez. "escolhidos" guarda os qtd vertices ja escolhidos.
+// So testa vertices a partir de "inicio" para nao repetir combinacoes.
+bool completarClique(int k, int inicio, int escolhidos[], int qtd) {
     if (qtd == k) {
-        return 1;
+        return true;
     }
 
     for (int v = inicio; v < n; v++) {
-        bool ligadoATodos = 1;
+        bool ligadoATodos = true;
 
-        for (int i = 0; i < qtd && ligadoATodos; i++) {
-            ligadoATodos = adj[escolhidos[i]][v] && adj[v][escolhidos[i]];
+        for (int i = 0; i < qtd; i++) {
+            int w = escolhidos[i];
+
+            if (adj[w][v] == 0 || adj[v][w] == 0) {
+                ligadoATodos = false;
+            }
         }
 
         if (ligadoATodos) {
             escolhidos[qtd] = v;
 
             if (completarClique(k, v + 1, escolhidos, qtd + 1)) {
-                return 1;
+                return true;
             }
         }
     }
 
-    return 0;
+    return false;
 }
 
-static bool temClique(int k) {
+bool temClique(int k) {
     int escolhidos[MAXN];
-
     return completarClique(k, 0, escolhidos, 0);
 }
 
-static bool acharCiclo(int L, int ciclo[], int qtd, bool usado[]) {
-    int u = ciclo[qtd - 1];
 
-    if (qtd == L) {
-        return !adj[u][ciclo[0]];
+/* ========================================================================
+ *  CONSTRUCAO DE GRAFO EULERIANO (comando 7)
+ *
+ *  Ideia: um grafo conexo com todos os graus pares e euleriano.
+ *    1. Comeca com um ciclo passando por todos os vertices (n arestas,
+ *       todos com grau 2, e ja e conexo).
+ *    2. As arestas que faltam sao adicionadas em forma de ciclos menores.
+ *       Cada ciclo soma 2 no grau de cada vertice dele, entao os graus
+ *       continuam pares.
+ *
+ *  Faltando 1 ou 2 arestas nao da para formar um ciclo, entao nesses casos
+ *  o ciclo inicial passa so por n-2 vertices e os 2 vertices que sobraram
+ *  entram em um triangulo (sobra 1) ou em um quadrado (sobra 2).
+ * ======================================================================== */
+
+// Liga os vertices 0, 1, ..., tamanho-1 em um ciclo.
+void adicionarCicloInicial(int tamanho) {
+    for (int i = 0; i < tamanho; i++) {
+        adicionarAresta(i, (i + 1) % tamanho);
     }
-
-    for (int v = 0; v < n; v++) {
-        if (usado[v] || adj[u][v]) {
-            continue;
-        }
-
-        usado[v] = 1;
-        ciclo[qtd] = v;
-
-        if (acharCiclo(L, ciclo, qtd + 1, usado)) {
-            return 1;
-        }
-
-        usado[v] = 0;
-    }
-
-    return 0;
 }
 
-static void adicionarCiclo(int L, int ciclo[]) {
+// Liga ciclo[0] -> ciclo[1] -> ... -> ciclo[L-1] -> ciclo[0].
+void adicionarCiclo(int L, int ciclo[]) {
     for (int i = 0; i < L; i++) {
         adicionarAresta(ciclo[i], ciclo[(i + 1) % L]);
     }
 }
 
-static void construirEuleriano() {
-    int vertices = lerInteiro(3, MAXN);
-    int maximo = vertices * (vertices - 1) / 2 - (vertices % 2 == 0 ? vertices / 2 : 0);
-    int m = lerInteiro(vertices, maximo);
-    int ciclo[MAXN];
-    bool usado[MAXN];
+// Procura um ciclo de L vertices que use apenas arestas que AINDA NAO existem.
+// Ja temos qtd vertices no caminho; tenta estender com mais um (backtracking).
+bool acharCicloNovo(int L, int ciclo[], int qtd, bool usado[]) {
+    int ultimo = ciclo[qtd - 1];
 
-    limparGrafo(vertices, 0);
-
-    int base = n;
-    int restante = m - n;
-
-    if (restante == 1 || restante == 2) {
-        base = n - 2;
+    if (qtd == L) {
+        // caminho completo: so falta poder fechar de volta no primeiro
+        return adj[ultimo][ciclo[0]] == 0;
     }
 
-    for (int i = 0; i < base; i++) {
-        adicionarAresta(i, (i + 1) % base);
+    for (int v = 0; v < n; v++) {
+        if (usado[v] || adj[ultimo][v] > 0) {
+            continue;
+        }
+
+        usado[v] = true;
+        ciclo[qtd] = v;
+
+        if (acharCicloNovo(L, ciclo, qtd + 1, usado)) {
+            return true;
+        }
+
+        usado[v] = false;               // nao deu certo: desfaz e tenta outro
     }
 
-    if (restante == 1) {
-        adicionarCiclo(3, (int[]){0, n - 2, n - 1});
-        restante = 0;
-    } else if (restante == 2) {
-        adicionarCiclo(4, (int[]){0, n - 2, 1, n - 1});
-        restante = 0;
+    return false;
+}
+
+void construirEuleriano() {
+    int vertices = lerInteiro();
+    int m = lerInteiro();
+
+    novoGrafo(vertices, false);
+
+    int faltam = m - n;     // arestas alem do ciclo inicial
+
+    if (faltam == 1) {
+        adicionarCicloInicial(n - 2);
+        int triangulo[3] = {0, n - 2, n - 1};
+        adicionarCiclo(3, triangulo);
+        return;
     }
 
-    while (restante > 0) {
-        int L = restante == 4 ? 4 : restante == 5 ? 5 : 3;
-        bool achou = 0;
+    if (faltam == 2) {
+        adicionarCicloInicial(n - 2);
+        int quadrado[4] = {0, n - 2, 1, n - 1};
+        adicionarCiclo(4, quadrado);
+        return;
+    }
 
-        memset(usado, 0, sizeof usado);
+    adicionarCicloInicial(n);
+
+    // Vai adicionando triangulos. Se faltarem exatamente 4 ou 5 arestas,
+    // usa um ciclo desse tamanho (com triangulos sobraria 1 ou 2).
+    while (faltam > 0) {
+        int L = 3;
+        if (faltam == 4 || faltam == 5) {
+            L = faltam;
+        }
+
+        int ciclo[MAXN];
+        bool usado[MAXN] = {false};
+        bool achou = false;
 
         for (int inicio = 0; inicio < n && !achou; inicio++) {
-            usado[inicio] = 1;
+            usado[inicio] = true;
             ciclo[0] = inicio;
-            achou = acharCiclo(L, ciclo, 1, usado);
-            usado[inicio] = 0;
+            achou = acharCicloNovo(L, ciclo, 1, usado);
+            usado[inicio] = false;
         }
 
         if (!achou) {
@@ -464,14 +518,16 @@ static void construirEuleriano() {
         }
 
         adicionarCiclo(L, ciclo);
-        restante -= L;
+        faltam -= L;
     }
 }
 
 
-static void mostrarGrafo() {
-    printf("%s, %d vertices\n", dirigido ? "Dirigido" : "Nao dirigido", n);
+/* ========================================================================
+ *  SAIDA
+ * ======================================================================== */
 
+void mostrarLista() {
     printf("\nLista de adjacencia:\n");
 
     for (int i = 0; i < n; i++) {
@@ -479,13 +535,15 @@ static void mostrarGrafo() {
 
         for (int j = 0; j < n; j++) {
             for (int k = 0; k < adj[i][j]; k++) {
-                printf(" %d", j + 1);
+                printf(" %d", j + 1);   // repete o vizinho se houver arestas multiplas
             }
         }
 
         printf("\n");
     }
+}
 
+void mostrarMatriz() {
     printf("\nMatriz de adjacencia:\n");
 
     for (int i = 0; i < n; i++) {
@@ -495,7 +553,9 @@ static void mostrarGrafo() {
 
         printf("\n");
     }
+}
 
+void mostrarGraus() {
     printf("\nGraus:\n");
 
     for (int i = 0; i < n; i++) {
@@ -509,19 +569,42 @@ static void mostrarGrafo() {
     printf("\n");
 }
 
+void mostrarGrafo() {
+    if (dirigido) {
+        printf("Dirigido, %d vertices\n", n);
+    } else {
+        printf("Nao dirigido, %d vertices\n", n);
+    }
 
-static void classificarGrafo() {
-    printf("Simples: %s\n", ehSimples() ? "sim" : "nao");
-    printf("Ciclo: %s\n", ehCiclo() ? "sim" : "nao");
-    printf("Completo: %s\n", ehCompleto() ? "sim" : "nao");
-    printf("Roda: %s\n", ehRoda() ? "sim" : "nao");
-    printf("Euleriano: %s\n", verificarEuleriano());
-    printf("Bipartido: %s\n", ehBipartido() ? "sim" : "nao");
-    printf("Conexo: %s\n", ehConexo(-1) ? "sim" : "nao");
-    printf("Clique de tamanho 3: %s\n", temClique(3) ? "sim" : "nao");
-    printf("Clique de tamanho 5: %s\n", temClique(5) ? "sim" : "nao");
+    mostrarLista();
+    mostrarMatriz();
+    mostrarGraus();
 }
 
+const char *simNao(bool valor) {
+    if (valor) {
+        return "sim";
+    }
+    return "nao";
+}
+
+void classificarGrafo() {
+    printf("Simples: %s\n", simNao(ehSimples()));
+    printf("Ciclo: %s\n", simNao(ehCiclo()));
+    printf("Completo: %s\n", simNao(ehCompleto()));
+    printf("Roda: %s\n", simNao(ehRoda()));
+    printf("Euleriano: %s\n", verificarEuleriano());
+    printf("Bipartido: %s\n", simNao(ehBipartido()));
+    printf("Conexo: %s\n", simNao(ehConexo(NENHUM)));
+    printf("Clique de tamanho 3: %s\n", simNao(temClique(3)));
+    printf("Clique de tamanho 5: %s\n", simNao(temClique(5)));
+    printf("________________________________\n");
+}
+
+
+/* ========================================================================
+ *  PROGRAMA PRINCIPAL
+ * ======================================================================== */
 
 int main() {
     entrada = fopen("entrada.txt", "r");
@@ -531,22 +614,33 @@ int main() {
         entrada = stdin;
     }
 
-    int comando;
+    int comando = lerInteiro();
 
-    while ((comando = lerInteiro(0, 7)) != 0) {
-        if (comando == 1) 
+    while (comando != 0) {
+        if (comando == 1) {
             lerMatrizAdjacencia();
-        if (comando == 2) 
-            lerMatrizIncidencia(0);
-        if (comando == 3) 
-            lerMatrizIncidencia(1);
-        if (comando == 4) 
-            lerListaAdjacencia();
-        if (comando == 7) 
-            construirEuleriano();
-        if (comando <= 5 || comando == 7) 
             mostrarGrafo();
-        if (comando == 6 || comando == 7) 
+        } else if (comando == 2) {
+            lerMatrizIncidencia(false);
+            mostrarGrafo();
+        } else if (comando == 3) {
+            lerMatrizIncidencia(true);
+            mostrarGrafo();
+        } else if (comando == 4) {
+            lerListaAdjacencia();
+            mostrarGrafo();
+        } else if (comando == 5) {
+            mostrarGrafo();
+        } else if (comando == 6) {
             classificarGrafo();
+        } else if (comando == 7) {
+            construirEuleriano();
+            mostrarGrafo();
+            classificarGrafo();
+        }
+
+        comando = lerInteiro();
     }
+
+    return 0;
 }
